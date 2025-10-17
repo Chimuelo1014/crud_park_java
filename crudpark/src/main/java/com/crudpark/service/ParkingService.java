@@ -10,10 +10,11 @@ import com.crudpark.dao.TarifaDAO;
 import com.crudpark.model.Tarifa;
 import java.math.BigDecimal;
 import java.time.Duration;
-
+import java.time.format.DateTimeFormatter;
 public class ParkingService {
     private static final String QR_PAYLOAD_PREFIX = "FOLIO:";
     private static final String QR_PAYLOAD_SEPARATOR = "|PLACA:";
+
 
     private TarifaDAO tarifaDAO;
     private TicketDAO ticketDAO;
@@ -69,6 +70,11 @@ public class ParkingService {
      * @param ticket El ticket que acaba de ser creado (debe tener el ID).
      * @return String con el formato de impresión.
      */
+    /**
+     * Genera el contenido de texto plano para un ticket de ingreso, incluyendo el payload del QR.
+     * @param ticket El ticket que acaba de ser creado (debe tener el ID).
+     * @return String con el formato de impresión.
+     */
     public String generarTicketImpresion(Ticket ticket) {
         if (ticket == null || ticket.getId() == 0) return "ERROR: TICKET NULO O SIN FOLIO ASIGNADO";
 
@@ -78,17 +84,26 @@ public class ParkingService {
         ticketText.append("------------------------------------------\n");
         ticketText.append("FOLIO:      #").append(ticket.getId()).append("\n");
         ticketText.append("PLACA:      ").append(ticket.getPlaca()).append("\n");
+
+        // Formatear la hora para que no salga el milisegundo tan largo (opcional)
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
         ticketText.append("FECHA ING.: ").append(ticket.getFechaIngreso().toLocalDate()).append("\n");
-        ticketText.append("HORA ING.:  ").append(ticket.getFechaIngreso().toLocalTime()).append("\n");
+        ticketText.append("HORA ING.:  ").append(ticket.getFechaIngreso().format(formatter)).append("\n");
+
+        // Nota: El Operador es dummy, por eso sale "usuario_dummy"
         ticketText.append("OPERADOR:   ").append(ticket.getOperadorIngreso().getUsuario()).append("\n");
         ticketText.append("------------------------------------------\n");
 
-        // Generar el payload del QR usando constantes
+        // ========================================================
+        // LÓGICA DEL QR PAYLOAD (LO QUE FALTABA)
+        // ========================================================
         String qrPayload = QR_PAYLOAD_PREFIX + ticket.getId() + QR_PAYLOAD_SEPARATOR + ticket.getPlaca();
 
         ticketText.append("     CODIGO DE LECTURA RAPIDA (ESCANEAR)  \n");
         ticketText.append("     ").append(qrPayload).append("\n");
         ticketText.append("------------------------------------------\n");
+        // ========================================================
 
         ticketText.append("    CONSERVE SU TICKET, GRACIAS POR USAR  \n");
         ticketText.append("            NUESTROS SERVICIOS.           \n");

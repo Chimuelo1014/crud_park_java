@@ -1,22 +1,15 @@
 package com.crudpark.util;
 
-import javax.print.*;
-import javax.print.attribute.HashPrintRequestAttributeSet;
-import javax.print.attribute.PrintRequestAttributeSet;
+import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.awt.print.*;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 
 public class PrintUtil {
 
-    /**
-     * Envía una cadena de texto a la impresora, usando la interfaz Printable
-     * para asegurar la compatibilidad con impresoras gráficas y PDF.
-     * @param ticketContent El contenido del ticket generado.
-     * @return True si el trabajo de impresión se envía con éxito.
-     */
-    public static boolean printPlainText(String ticketContent) {
+    // El método printPlainText debe recibir el contenido del ticket Y la imagen del QR
+    public static boolean printTicketWithQR(String ticketContent, BufferedImage qrImage) {
         try {
             PrintService defaultPrintService = PrintServiceLookup.lookupDefaultPrintService();
 
@@ -25,40 +18,33 @@ public class PrintUtil {
                 return false;
             }
 
-            // Crear un trabajo que usará la clase TicketPrintJob (definida abajo)
             PrinterJob job = PrinterJob.getPrinterJob();
             job.setPrintService(defaultPrintService);
-            job.setPrintable(new TicketPrintJob(ticketContent));
 
-            // Configurar el tamaño de página (específico para recibos si es necesario)
-            PageFormat pageFormat = job.defaultPage();
-            // Si es una impresora de recibos, puedes intentar reducir el ancho, pero generalmente no es necesario para texto plano.
-            // pageFormat.setOrientation(PageFormat.PORTRAIT);
-
-            job.setPrintable(new TicketPrintJob(ticketContent), pageFormat);
-
-            // job.printDialog(); // Opcional: Para que el usuario elija la impresora
+            // Usar la nueva clase interna que dibuja el texto Y la imagen
+            job.setPrintable(new TicketPrintJobWithQR(ticketContent, qrImage));
 
             job.print();
             return true;
 
         } catch (Exception e) {
-            System.err.println("Error al imprimir el ticket: " + e.getMessage());
+            System.err.println("Error al imprimir el ticket con QR: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
     }
 
     /**
-     * Clase interna que implementa la interfaz Printable para dibujar el texto.
+     * Clase interna que implementa Printable para dibujar el texto y la imagen QR.
      */
-    private static class TicketPrintJob implements Printable {
+    private static class TicketPrintJobWithQR implements Printable {
         private final String content;
+        private final BufferedImage qrImage;
         private final String[] lines;
 
-        public TicketPrintJob(String content) {
+        public TicketPrintJobWithQR(String content, BufferedImage qrImage) {
             this.content = content;
-            // Dividir el contenido en líneas para dibujar cada una
+            this.qrImage = qrImage;
             this.lines = content.split("\n");
         }
 
@@ -71,18 +57,31 @@ public class PrintUtil {
             Graphics2D g2d = (Graphics2D) graphics;
             g2d.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
 
-            // --- Estilos ---
-            // Usar una fuente monoespaciada para que las columnas se alineen
+            // --- 1. Dibujar Texto ---
             Font font = new Font("Monospaced", Font.PLAIN, 10);
             g2d.setFont(font);
 
-            int y = 0; // Coordenada Y
+            int y = 0; // Coordenada Y actual
             int lineHeight = g2d.getFontMetrics().getHeight();
 
-            // Dibujar cada línea
             for (String line : lines) {
                 g2d.drawString(line, 0, y);
                 y += lineHeight;
+            }
+
+            // Agregar un espacio entre el texto y el QR
+            y += lineHeight * 2;
+
+            // --- 2. Dibujar QR si existe ---
+            if (qrImage != null) {
+                // Dibujar la imagen centrada si el recibo lo permite
+                int xCenter = (int) ((pageFormat.getImageableWidth() - qrImage.getWidth()) / 2);
+
+                g2d.drawString("ESCANEA PARA SALIDA:", 0, y);
+                y += lineHeight;
+
+                // Dibujar la imagen del QR
+                g2d.drawImage(qrImage, xCenter, y, null);
             }
 
             return PAGE_EXISTS;

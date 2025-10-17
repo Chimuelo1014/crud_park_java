@@ -4,32 +4,24 @@ import com.google.zxing.BarcodeFormat;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
-import java.io.ByteArrayOutputStream;
 import java.awt.image.BufferedImage;
-import javax.imageio.ImageIO;
 
 public class QRUtil {
 
-    private static final int QR_SIZE = 150; // Tamaño en píxeles (para recibo)
+    private static final int QR_SIZE = 150; // Tamaño en píxeles (adecuado para recibos)
 
     /**
-     * Genera la imagen del Código QR como un array de bytes.
+     * Genera la imagen del Código QR como un BufferedImage.
      * @param text El contenido (Payload) a codificar (Ej: FOLIO:123|PLACA:ABC).
-     * @return Array de bytes de la imagen PNG, o null si falla.
+     * @return BufferedImage de la imagen QR, o null si falla.
      */
-    public static byte[] generateQRCodeImage(String text) {
+    public static BufferedImage generateQRCodeImage(String text) {
         try {
             QRCodeWriter qrCodeWriter = new QRCodeWriter();
             BitMatrix bitMatrix = qrCodeWriter.encode(text, BarcodeFormat.QR_CODE, QR_SIZE, QR_SIZE);
 
             // Convertir BitMatrix a BufferedImage
-            BufferedImage image = MatrixToImageWriter.toBufferedImage(bitMatrix);
-
-            // Convertir BufferedImage a ByteArrayOutputStream (PNG)
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ImageIO.write(image, "PNG", baos);
-
-            return baos.toByteArray();
+            return MatrixToImageWriter.toBufferedImage(bitMatrix);
 
         } catch (Exception e) {
             System.err.println("Error al generar el Código QR: " + e.getMessage());
