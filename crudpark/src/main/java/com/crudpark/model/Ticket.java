@@ -39,5 +39,9 @@ public class Ticket {
     public Operador getOperadorIngreso() { return operadorIngreso; }
     public boolean estaAbierto() { return fechaSalida == null; }
     public String getTipoVehiculo() { return tipoVehiculo; } // <-- Método corregido
+    // Método setter que te permite actualizar el ID después de la inserción en la DB.
+    public void setId(int id) {
+        this.id = id;
+    }
     // ... otros getters y setters si son necesarios
 }

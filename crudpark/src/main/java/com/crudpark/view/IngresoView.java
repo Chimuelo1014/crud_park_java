@@ -8,7 +8,7 @@ import java.awt.*;
 public class IngresoView extends JFrame {
 
     private JTextField placaField;
-    private Operador operador; // Necesitamos saber quién está operando
+    private Operador operador;
 
     public IngresoView(Operador operador) {
         this.operador = operador;
@@ -36,11 +36,23 @@ public class IngresoView extends JFrame {
         });
     }
 
+    /**
+     * Muestra mensajes de error o éxito al usuario.
+     * Se elimina la limpieza automática del campo para que el Controller decida cuándo limpiar.
+     * @param message El mensaje a mostrar.
+     * @param isError Si es un mensaje de error (true) o informativo (false).
+     */
     public void showMessage(String message, boolean isError) {
         int type = isError ? JOptionPane.ERROR_MESSAGE : JOptionPane.INFORMATION_MESSAGE;
+        // El controller ahora maneja la limpieza del campo.
         JOptionPane.showMessageDialog(this, message, isError ? "Error de Ingreso" : "Ingreso Exitoso", type);
-        if (!isError) {
-            placaField.setText(""); // Limpiar el campo después de un ingreso exitoso
-        }
+    }
+
+    /**
+     * Nuevo método público llamado por el Controller para limpiar el campo.
+     * Esto asegura que solo se limpie después de que todo el proceso (DB + Impresión) finalice con éxito.
+     */
+    public void clearPlaca() {
+        placaField.setText("");
     }
 }

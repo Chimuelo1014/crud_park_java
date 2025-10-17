@@ -8,11 +8,23 @@ import java.time.LocalDateTime;
 
 public class TicketDAO {
 
+    // --- CONSULTAS SQL CONSOLIDADAS ---
+
     private static final String FIND_OPEN_BY_PLACA =
             "SELECT id, placa, fecha_ingreso, operador_ingreso_id, tipo_vehiculo FROM tickets WHERE placa = ? AND fecha_salida IS NULL";
 
     private static final String INSERT_TICKET =
-            "INSERT INTO tickets (placa, fecha_ingreso, operador_ingreso_id, tipo_vehiculo) VALUES (?, ?, ?, ?) RETURNING id";
+            "INSERT INTO tickets (placa, fecha_ingreso, operador_ingreso_id, tipo_vehiculo) " +
+                    "VALUES (?, ?, ?, ?)"; // No necesitamos 'RETURNING id' en la String si usamos Statement.RETURN_GENERATED_KEYS
+
+    private static final String UPDATE_TICKET_SALIDA =
+            "UPDATE tickets SET fecha_salida = ?, operador_salida_id = ? WHERE id = ?";
+
+    private static final String FIND_LATEST_OPEN_BY_PLACA =
+            "SELECT id, placa, fecha_ingreso, operador_ingreso_id, tipo_vehiculo FROM tickets " +
+                    "WHERE placa = ? AND fecha_salida IS NULL ORDER BY fecha_ingreso DESC LIMIT 1";
+
+    // --- MÉTODOS ---
 
     /**
      * Busca un ticket abierto (sin fecha_salida) para una placa específica.
@@ -20,8 +32,6 @@ public class TicketDAO {
      * @return Ticket si encuentra uno abierto, o null.
      */
     public Ticket findOpenTicketByPlaca(String placa) {
-        // Nota: Por simplicidad, este método devuelve un Ticket con un Operador placeholder.
-        // En un sistema real, necesitarías un join o llamar a OperadorDAO para obtener el objeto completo.
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
@@ -34,14 +44,13 @@ public class TicketDAO {
             rs = stmt.executeQuery();
 
             if (rs.next()) {
-                // Usamos un Operador dummy para evitar dependencia circular.
-                // Mejor aún: crear un método en OperadorDAO para obtener el nombre solo por ID.
+                // Usamos un Operador dummy (placeholder).
                 Operador operadorPlaceholder = new Operador(rs.getInt("operador_ingreso_id"), "usuario_dummy", "Nombre", true);
 
                 ticket = new Ticket(
                         rs.getInt("id"),
                         rs.getString("placa"),
-                        rs.getTimestamp("fecha_ingreso").toLocalDateTime(), // Conversión de SQL Timestamp a Java LocalDateTime
+                        rs.getTimestamp("fecha_ingreso").toLocalDateTime(),
                         null, // fecha_salida es null
                         operadorPlaceholder,
                         null,
@@ -56,9 +65,11 @@ public class TicketDAO {
         return ticket;
     }
 
+
     /**
-     * Crea un nuevo ticket de ingreso en la base de datos.
-     * @param ticket El objeto Ticket con placa, fecha y operador.
+     * Crea un nuevo ticket de ingreso en la base de datos y devuelve el ID generado.
+     * * NOTA: Este método es la versión correcta y consolidada de los dos métodos 'create' que tenías.
+     * * @param ticket El objeto Ticket con placa, fecha y operador.
      * @return El ID (folio) generado del nuevo ticket, o -1 si falla.
      */
     public int create(Ticket ticket) {
@@ -69,12 +80,15 @@ public class TicketDAO {
 
         try {
             conn = DatabaseConnection.getConnection();
+
+            // Usamos la constante INSERT_TICKET y pedimos las claves generadas
             stmt = conn.prepareStatement(INSERT_TICKET, Statement.RETURN_GENERATED_KEYS);
 
             stmt.setString(1, ticket.getPlaca());
             stmt.setTimestamp(2, Timestamp.valueOf(ticket.getFechaIngreso()));
             stmt.setInt(3, ticket.getOperadorIngreso().getId());
-            stmt.setString(4, ticket.getTipoVehiculo());
+            // Se usa el valor del objeto o un valor por defecto si es nulo (para evitar NullPointerException)
+            stmt.setString(4, ticket.getTipoVehiculo() != null ? ticket.getTipoVehiculo() : "AUTO");
 
             int affectedRows = stmt.executeUpdate();
 
@@ -91,9 +105,6 @@ public class TicketDAO {
         }
         return ticketId;
     }
-
-    private static final String UPDATE_TICKET_SALIDA =
-            "UPDATE tickets SET fecha_salida = ?, operador_salida_id = ? WHERE id = ?";
 
     /**
      * Actualiza un ticket para registrar la hora de salida y el operador.
@@ -121,5 +132,44 @@ public class TicketDAO {
         } finally {
             DatabaseConnection.closeConnection(null, stmt, conn);
         }
+    }
+
+    /**
+     * Busca el ticket ABIERTO más reciente para una placa (utilizado para imprimir).
+     * @param placa La placa a buscar.
+     * @return Ticket si encuentra uno abierto, o null.
+     */
+    public Ticket findLatestOpenTicketByPlaca(String placa) {
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        Ticket ticket = null;
+
+        try {
+            conn = DatabaseConnection.getConnection();
+            stmt = conn.prepareStatement(FIND_LATEST_OPEN_BY_PLACA);
+            stmt.setString(1, placa);
+            rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                // Usamos un Operador dummy (placeholder).
+                Operador operadorPlaceholder = new Operador(rs.getInt("operador_ingreso_id"), "usuario_dummy", "Nombre", true);
+
+                ticket = new Ticket(
+                        rs.getInt("id"),
+                        rs.getString("placa"),
+                        rs.getTimestamp("fecha_ingreso").toLocalDateTime(),
+                        null,
+                        operadorPlaceholder,
+                        null,
+                        rs.getString("tipo_vehiculo")
+                );
+            }
+        } catch (SQLException e) {
+            System.err.println("Error DB en TicketDAO.findLatestOpenTicketByPlaca: " + e.getMessage());
+        } finally {
+            DatabaseConnection.closeConnection(rs, stmt, conn);
+        }
+        return ticket;
     }
 }

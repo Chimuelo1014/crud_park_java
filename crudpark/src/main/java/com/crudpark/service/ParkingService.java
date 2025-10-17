@@ -11,8 +11,10 @@ import com.crudpark.model.Tarifa;
 import java.math.BigDecimal;
 import java.time.Duration;
 
-
 public class ParkingService {
+    private static final String QR_PAYLOAD_PREFIX = "FOLIO:";
+    private static final String QR_PAYLOAD_SEPARATOR = "|PLACA:";
+
     private TarifaDAO tarifaDAO;
     private TicketDAO ticketDAO;
     private MensualidadDAO mensualidadDAO;
@@ -42,7 +44,6 @@ public class ParkingService {
         boolean esAbonado = false;
         if (mensualidad != null && mensualidad.esMensualidadValidaHoy()) {
             esAbonado = true;
-            // Podrías registrar un tipo de ticket diferente o imprimir un mensaje especial.
         }
 
         // 3. CREAR EL NUEVO TICKET
@@ -52,11 +53,48 @@ public class ParkingService {
         int folioGenerado = ticketDAO.create(nuevoTicket);
 
         if (folioGenerado > 0) {
+            // AJUSTE CLAVE: Asignar el ID generado para que el objeto Ticket esté completo
+            nuevoTicket.setId(folioGenerado);
+
             String tipo = esAbonado ? "ABONADO" : "NORMAL";
             return "ÉXITO: Ingreso de " + placa + " registrado. Folio: #" + folioGenerado + " (" + tipo + ")";
         } else {
             return "ERROR CRÍTICO: Falló la inserción en la base de datos.";
         }
+    }
+
+
+    /**
+     * Genera el contenido de texto plano para un ticket de ingreso, incluyendo el payload del QR.
+     * @param ticket El ticket que acaba de ser creado (debe tener el ID).
+     * @return String con el formato de impresión.
+     */
+    public String generarTicketImpresion(Ticket ticket) {
+        if (ticket == null || ticket.getId() == 0) return "ERROR: TICKET NULO O SIN FOLIO ASIGNADO";
+
+        StringBuilder ticketText = new StringBuilder();
+        ticketText.append("------------------------------------------\n");
+        ticketText.append("           CRUD PARK - BIENVENIDO         \n");
+        ticketText.append("------------------------------------------\n");
+        ticketText.append("FOLIO:      #").append(ticket.getId()).append("\n");
+        ticketText.append("PLACA:      ").append(ticket.getPlaca()).append("\n");
+        ticketText.append("FECHA ING.: ").append(ticket.getFechaIngreso().toLocalDate()).append("\n");
+        ticketText.append("HORA ING.:  ").append(ticket.getFechaIngreso().toLocalTime()).append("\n");
+        ticketText.append("OPERADOR:   ").append(ticket.getOperadorIngreso().getUsuario()).append("\n");
+        ticketText.append("------------------------------------------\n");
+
+        // Generar el payload del QR usando constantes
+        String qrPayload = QR_PAYLOAD_PREFIX + ticket.getId() + QR_PAYLOAD_SEPARATOR + ticket.getPlaca();
+
+        ticketText.append("     CODIGO DE LECTURA RAPIDA (ESCANEAR)  \n");
+        ticketText.append("     ").append(qrPayload).append("\n");
+        ticketText.append("------------------------------------------\n");
+
+        ticketText.append("    CONSERVE SU TICKET, GRACIAS POR USAR  \n");
+        ticketText.append("            NUESTROS SERVICIOS.           \n");
+        ticketText.append("------------------------------------------\n");
+
+        return ticketText.toString();
     }
 
 
@@ -81,7 +119,7 @@ public class ParkingService {
         Tarifa tarifa = tarifaDAO.findActiveTarifa();
         if (tarifa == null) {
             // Manejar error: No hay tarifa activa
-            return new BigDecimal(-1);
+            return new BigDecimal("-1.00"); // Devolver un valor que indique error de tarifa
         }
 
         LocalDateTime salida = LocalDateTime.now();
@@ -100,16 +138,14 @@ public class ParkingService {
         }
 
         // 3. Cálculo basado en fracción de minutos
-        // Descontamos minutos de gracia para el cobro
         long minutosCobro = minutosTotales - tarifa.getMinutosGracia();
 
-        // Monto = minutos_cobro * valor_fraccion_minuto
         BigDecimal totalMinutos = new BigDecimal(minutosCobro);
 
-        // Nota: La tarifa de PostgreSQL se insertó como 50.00 por hora / 0.84 por minuto.
         BigDecimal monto = totalMinutos.multiply(tarifa.getValorFraccionMinuto());
 
         // Redondeo a 2 decimales y devuelve el monto.
+        // Se recomienda usar RoundingMode.HALF_UP o HALF_EVEN, pero mantendremos ROUND_UP como lo tienes:
         return monto.setScale(2, BigDecimal.ROUND_UP);
     }
 
@@ -117,10 +153,8 @@ public class ParkingService {
      * Cierra el ticket y registra el pago (Lógica de Pago y Cierre).
      */
     public boolean finalizarSalida(Ticket ticket, Operador operador, BigDecimal montoPagado) {
-        // En un sistema real, aquí se llamaría a un PagoDAO. Por ahora, solo cerramos el ticket.
 
-        if (montoPagado.compareTo(BigDecimal.ZERO) < 0) {
-            // Error de cálculo o intento de pago negativo
+        if (montoPagado == null || montoPagado.compareTo(BigDecimal.ZERO) < 0) {
             return false;
         }
 
@@ -134,8 +168,18 @@ public class ParkingService {
         );
 
         // 2. Opcional: Registrar el pago en la tabla 'pagos' (se haría con un PagoDAO)
-        // pagoDAO.create(ticket.getId(), montoPagado, "Efectivo", operador.getId());
+        // Ya que la tabla 'pagos' existe, esta es la línea real que faltaría implementar.
 
         return ticketCerrado;
+    }
+
+    /**
+     * Busca el ticket abierto más reciente para una placa.
+     * Este método se usa principalmente para la impresión inmediata tras el registro.
+     * @param placa La placa del vehículo.
+     * @return El objeto Ticket abierto o null.
+     */
+    public Ticket getLatestOpenTicketByPlaca(String placa) {
+        return ticketDAO.findLatestOpenTicketByPlaca(placa);
     }
 }
