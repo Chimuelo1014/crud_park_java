@@ -1,25 +1,23 @@
 package com.crudpark.util;
 
+import javax.print.*;
+import javax.print.attribute.HashPrintRequestAttributeSet;
+import javax.print.attribute.PrintRequestAttributeSet;
+import java.awt.*;
+import java.awt.print.*;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import javax.print.*;
-import javax.print.attribute.*;
-import javax.print.attribute.standard.Copies;
-import javax.print.attribute.standard.MediaPrintableArea;
-import javax.print.attribute.standard.MediaSize;
-import javax.print.attribute.standard.MediaSizeName;
-import javax.print.attribute.standard.PrintQuality;
 
 public class PrintUtil {
 
     /**
-     * Envía una cadena de texto plano a la impresora predeterminada.
+     * Envía una cadena de texto a la impresora, usando la interfaz Printable
+     * para asegurar la compatibilidad con impresoras gráficas y PDF.
      * @param ticketContent El contenido del ticket generado.
      * @return True si el trabajo de impresión se envía con éxito.
      */
     public static boolean printPlainText(String ticketContent) {
         try {
-            // 1. Obtener el servicio de impresión predeterminado
             PrintService defaultPrintService = PrintServiceLookup.lookupDefaultPrintService();
 
             if (defaultPrintService == null) {
@@ -27,27 +25,67 @@ public class PrintUtil {
                 return false;
             }
 
-            // 2. Definir los atributos del trabajo de impresión
-            PrintRequestAttributeSet aset = new HashPrintRequestAttributeSet();
-            aset.add(new Copies(1));
-            // aset.add(MediaSizeName.ISO_A7); // Opcional: para impresoras de recibos pequeñas
+            // Crear un trabajo que usará la clase TicketPrintJob (definida abajo)
+            PrinterJob job = PrinterJob.getPrinterJob();
+            job.setPrintService(defaultPrintService);
+            job.setPrintable(new TicketPrintJob(ticketContent));
 
-            // 3. Crear el documento (InputStream)
-            InputStream stream = new ByteArrayInputStream(ticketContent.getBytes());
-            DocFlavor flavor = DocFlavor.INPUT_STREAM.AUTOSENSE; // Auto-detectar tipo de datos (texto plano)
-            Doc doc = new SimpleDoc(stream, flavor, null);
+            // Configurar el tamaño de página (específico para recibos si es necesario)
+            PageFormat pageFormat = job.defaultPage();
+            // Si es una impresora de recibos, puedes intentar reducir el ancho, pero generalmente no es necesario para texto plano.
+            // pageFormat.setOrientation(PageFormat.PORTRAIT);
 
-            // 4. Crear el trabajo de impresión y enviarlo
-            DocPrintJob job = defaultPrintService.createPrintJob();
-            job.print(doc, aset);
+            job.setPrintable(new TicketPrintJob(ticketContent), pageFormat);
 
-            stream.close();
+            // job.printDialog(); // Opcional: Para que el usuario elija la impresora
+
+            job.print();
             return true;
 
         } catch (Exception e) {
             System.err.println("Error al imprimir el ticket: " + e.getMessage());
             e.printStackTrace();
             return false;
+        }
+    }
+
+    /**
+     * Clase interna que implementa la interfaz Printable para dibujar el texto.
+     */
+    private static class TicketPrintJob implements Printable {
+        private final String content;
+        private final String[] lines;
+
+        public TicketPrintJob(String content) {
+            this.content = content;
+            // Dividir el contenido en líneas para dibujar cada una
+            this.lines = content.split("\n");
+        }
+
+        @Override
+        public int print(Graphics graphics, PageFormat pageFormat, int pageIndex) throws PrinterException {
+            if (pageIndex > 0) {
+                return NO_SUCH_PAGE;
+            }
+
+            Graphics2D g2d = (Graphics2D) graphics;
+            g2d.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
+
+            // --- Estilos ---
+            // Usar una fuente monoespaciada para que las columnas se alineen
+            Font font = new Font("Monospaced", Font.PLAIN, 10);
+            g2d.setFont(font);
+
+            int y = 0; // Coordenada Y
+            int lineHeight = g2d.getFontMetrics().getHeight();
+
+            // Dibujar cada línea
+            for (String line : lines) {
+                g2d.drawString(line, 0, y);
+                y += lineHeight;
+            }
+
+            return PAGE_EXISTS;
         }
     }
 }
