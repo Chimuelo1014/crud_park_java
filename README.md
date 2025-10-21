@@ -356,27 +356,7 @@ This allows operators to quickly scan tickets at exit instead of manually typing
 - No connection pooling
 - No transaction management
 
-### Planned Enhancements
-- [ ] Implement BCrypt password hashing
-- [ ] Complete payment table integration
-- [ ] Add multi-rate support (motorcycle, truck, etc.)
-- [ ] Implement database connection pooling
-- [ ] Add transaction rollback handling
-- [ ] Export reports to PDF/Excel
-- [ ] Dashboard with statistics and charts
-- [ ] Historical ticket search
-- [ ] Email notifications for memberships expiring
-- [ ] API REST for mobile integration
 
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ### Coding Standards
 - Follow Java naming conventions
@@ -384,28 +364,11 @@ Contributions are welcome! Please follow these steps:
 - Include unit tests for new features
 - Keep methods focused and concise
 - Use meaningful variable names
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+  
 
 ## 👥 Authors
 
-- **Your Name** - *Initial work* - [YourGitHub](https://github.com/yourusername)
+- Samuel Quintero Sanchez -  - github: https://github.com/Chimuelo1014/crud_park_java
 
-## 🙏 Acknowledgments
 
-- ZXing library for QR code generation
-- PostgreSQL community for excellent documentation
-- Java Swing tutorials and community
 
-## 📞 Support
-
-For issues, questions, or suggestions:
-- Open an issue on GitHub
-- Email: your.email@example.com
-- Documentation: [Wiki](https://github.com/yourusername/crudpark/wiki)
-
----
-
-**Made with ☕ and Java**
